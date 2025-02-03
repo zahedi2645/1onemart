@@ -1,0 +1,14 @@
+/my-ecommerce
+│── /components
+│   ├── Navbar.js
+│   ├── ProductCard.js
+│── /pages
+│   ├── index.js
+│   ├── cart.js
+│   ├── /product
+│       ├── [id].js
+│── /public
+│   ├── images/
+│── package.json
+│── next.config.js
+│── tailwind.config.js (اگر از Tailwind استفاده می‌کنی)
