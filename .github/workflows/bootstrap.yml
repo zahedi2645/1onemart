@@ -1,0 +1,124 @@
+
+name: Bootstrap Elnotech
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create labels
+        shell: bash
+        run: |
+          set -e
+          create() { gh label create "$1" --color "$2" --description "$3" --repo "$REPO" 2>/dev/null || gh label edit "$1" --color "$2" --description "$3" --repo "$REPO"; }
+          # Priority
+          create "priority:P0" "b60205" "Critical priority"
+          create "priority:P1" "d93f0b" "High priority"
+          create "priority:P2" "fbca04" "Medium priority"
+          create "priority:P3" "0e8a16" "Low priority"
+          # Type
+          create "type:feature" "1d76db" "New feature"
+          create "type:fix"     "d73a4a" "Bug fix"
+          create "type:design"  "5319e7" "Design/RFC"
+          create "type:test"    "5319e7" "Tests"
+          create "type:chore"   "c5def5" "Chore/infra"
+          # Area
+          create "area:search"    "0e8a16" "Search/Crawler/Indexer"
+          create "area:payments"  "5319e7" "Checkout/Ledger/PSP"
+          create "area:risk"      "b60205" "Fraud/KYC/AML"
+          create "area:frontend"  "1d76db" "Web/Admin/UI"
+          create "area:data"      "5319e7" "Data/ML/Analytics"
+          create "area:platform"  "0052cc" "Platform/Observability"
+          create "area:infra"     "0052cc" "Infra/IaC"
+          # Sprint
+          create "sprint:W1-2025-08-22" "5319e7" "Sprint W1 (due 2025-08-22)"
+          create "sprint:W2-2025-08-29" "5319e7" "Sprint W2 (due 2025-08-29)"
+          # Topics
+          create "topic:security"   "b60205" "Security/Hardening"
+          create "topic:compliance" "0e8a16" "Compliance/Legal"
+
+      - name: Create W1/W2 issues
+        shell: bash
+        run: |
+          set -e
+          mk() { gh issue create --repo "$REPO" --title "$1" --body "$2" --label "$3" >/dev/null; }
+          W1="2025-08-22"; W2="2025-08-29"
+          mk "RFC: Architecture & API Contracts (Search/Payments)" "- Output: diagrams + OpenAPI v0
+          - Acceptance:
+            - [ ] /docs/architecture diagrams
+            - [ ] openapi.yaml in apps/search-api & apps/checkout
+            - [ ] Review by core-maintainers
+          - Due: $W1
+          - Owner: @Elnotech/core-maintainers" "type:design,area:platform,priority:P1,sprint:W1-2025-08-22"
+
+          mk "PRD: Search, Checkout, BNPL (MVP)" "- Output: PRDs with DoD
+          - Due: $W1
+          - Owner: @Elnotech/core-maintainers" "type:design,area:frontend,priority:P1,sprint:W1-2025-08-22"
+
+          mk "CI/CD: Base pipeline + CodeQL + SBOM + Branch protections" "- Output: CI green + CodeQL + SBOM + branch rule
+          - Due: $W1
+          - Owner: @Elnotech/core-maintainers" "type:chore,area:platform,priority:P0,sprint:W1-2025-08-22,topic:security"
+
+          mk "Search: Catalog schema & index mapping (OpenSearch)" "- Output: mapping + 100 sample docs + p95<=600ms
+          - Due: $W1
+          - Owner: @Elnotech/search-team" "type:design,area:search,priority:P1,sprint:W1-2025-08-22"
+
+          mk "Risk & Compliance: DPIA summary + KYC/AML policy draft" "- Output: data-flow + retention + 5 AML checks
+          - Due: $W1
+          - Owner: @Elnotech/risk-team" "type:design,area:risk,priority:P1,sprint:W1-2025-08-22,topic:compliance"
+
+          mk "QA: Test strategy & E2E happy path plan" "- Output: QA-STRATEGY.md + E2E plan
+          - Due: $W1
+          - Owner: @Elnotech/core-maintainers" "type:test,area:platform,priority:P2,sprint:W1-2025-08-22"
+
+          mk "Crawler+Normalizer v0 (10k pages, <1% error)" "- Output: /crawl + queue + rate limits
+          - Due: $W2
+          - Owner: @Elnotech/search-team" "type:feature,area:search,priority:P1,sprint:W2-2025-08-29"
+
+          mk "OpenSearch initial index + facets + dedup (simple)" "- Output: /search with filters + dedup
+          - Due: $W2
+          - Owner: @Elnotech/search-team" "type:feature,area:search,priority:P1,sprint:W2-2025-08-29"
+
+          mk "Checkout API v0 (PaymentIntent create/confirm)" "- Output: endpoints + PSP sandbox + webhook
+          - Due: $W2
+          - Owner: @Elnotech/payments-team" "type:feature,area:payments,priority:P1,sprint:W2-2025-08-29"
+
+          mk "Ledger service skeleton + ERD" "- Output: accounts/entries/postings + tests
+          - Due: $W2
+          - Owner: @Elnotech/payments-team" "type:feature,area:payments,priority:P1,sprint:W2-2025-08-29"
+
+          mk "Risk: Rule engine v0 (10 rules) + scoring" "- Output: rules + decision + audit log
+          - Due: $W2
+          - Owner: @Elnotech/risk-team" "type:feature,area:risk,priority:P2,sprint:W2-2025-08-29"
+
+          mk "Telemetry events & KPI dashboard v0" "- Output: event schemas + Grafana panels
+          - Due: $W2
+          - Owner: @Elnotech/data-team" "type:feature,area:data,priority:P2,sprint:W2-2025-08-29"
+
+      - name: Protect main (best-effort; optional)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          if [ -n "${GH_TOKEN:-}" ]; then
+            gh api --method PUT "repos/$REPO/branches/main/protection" \
+              -H "Accept: application/vnd.github+json" \
+              -F required_status_checks[strict]=true \
+              -F required_pull_request_reviews[dismiss_stale_reviews]=true \
+              -F enforce_admins=true \
+              -F restrictions= \
+              -F required_pull_request_reviews[required_approving_review_count]=1
+          else
+            echo "ADMIN_TOKEN not set; skipping branch protection."
+          fi
